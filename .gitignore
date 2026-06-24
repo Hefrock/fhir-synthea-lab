@@ -1,0 +1,6 @@
+synthea/output/
+synthea/synthea-with-dependencies.jar
+scripts/.verify_baseline.json
+.env
+__pycache__/
+*.pyc

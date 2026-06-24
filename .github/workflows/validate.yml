@@ -1,0 +1,50 @@
+name: Validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python deps
+        run: pip install requests
+
+      - name: Set up Java (for Synthea)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Start HAPI FHIR
+        run: docker compose up -d
+
+      - name: Wait for HAPI readiness
+        run: |
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8080/fhir/metadata > /dev/null && echo "HAPI ready" && exit 0
+            echo "Waiting... ($i/30)"
+            sleep 5
+          done
+          echo "HAPI did not start in time" && exit 1
+
+      - name: Generate Synthea patients
+        run: make generate
+
+      - name: Load bundles
+        run: make load
+
+      - name: Verify fidelity and reproducibility
+        run: make verify
+        env:
+          FHIR_BASE_URL: http://localhost:8080/fhir
