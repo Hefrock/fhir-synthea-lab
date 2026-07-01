@@ -41,7 +41,7 @@ def fetch_all_pages(path, params):
     while True:
         entries.extend(bundle.get("entry", []))
         next_link = next(
-            (link["url"] for link in bundle.get("link", []) if link["rel"] == "next"),
+            (link["url"] for link in bundle.get("link", []) if link.get("rel") == "next"),
             None,
         )
         if not next_link:
