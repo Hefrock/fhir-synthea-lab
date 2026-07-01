@@ -3,14 +3,14 @@
 up:
 	docker compose up -d
 	@echo "Waiting for HAPI FHIR to become ready..."
-	@for i in $$(seq 1 60); do \
+	@for i in $$(seq 1 120); do \
 		if curl -sf http://localhost:8080/fhir/metadata > /dev/null 2>&1; then \
 			echo "HAPI FHIR is ready."; \
 			exit 0; \
 		fi; \
-		sleep 1; \
+		sleep 5; \
 	done; \
-	echo "ERROR: HAPI FHIR did not become ready within 60s." && exit 1
+	echo "ERROR: HAPI FHIR did not become ready within 600s." && exit 1
 
 down:
 	docker compose down
