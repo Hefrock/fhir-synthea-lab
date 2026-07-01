@@ -108,10 +108,13 @@ def main():
         not missing_conditions,
         f"{len(missing_conditions)} missing" if missing_conditions else "",
     )
+    # Allow up to 10% without MedicationRequests — Synthea naturally produces
+    # some patients (young children, very healthy individuals) with zero meds.
+    med_coverage = (len(patient_ids) - len(missing_meds)) / max(len(patient_ids), 1)
     check(
-        "All patients have MedicationRequests",
-        not missing_meds,
-        f"{len(missing_meds)} missing" if missing_meds else "",
+        "Most patients have MedicationRequests (>=90%)",
+        med_coverage >= 0.90,
+        f"{len(patient_ids) - len(missing_meds)}/{len(patient_ids)} have meds ({med_coverage:.0%})",
     )
     check(
         "All patients have Observations",
