@@ -31,11 +31,28 @@ jobs:
 
       - name: Wait for HAPI readiness
         run: |
-          for i in $(seq 1 30); do
-            curl -sf http://localhost:8080/fhir/metadata > /dev/null && echo "HAPI ready" && exit 0
-            echo "Waiting... ($i/30)"
-            sleep 5
+          for i in $(seq 1 60); do
+            status=$(docker inspect --format='{{.State.Health.Status}}' fhir-synthea-lab-hapi-1 2>/dev/null || echo "unknown")
+            # Verify both the metadata endpoint AND that the transaction endpoint accepts POSTs.
+            # HAPI's GET /fhir/metadata becomes available well before JPA transaction processing
+            # is fully initialized, so checking metadata alone causes premature "ready" signals.
+            meta_ok=false
+            txn_code=""
+            if curl -sf http://localhost:8080/fhir/metadata > /dev/null 2>&1; then
+              meta_ok=true
+              txn_code=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:8080/fhir \
+                -H "Content-Type: application/fhir+json" \
+                -d '{"resourceType":"Bundle","type":"transaction","entry":[]}' 2>/dev/null)
+            fi
+            if [ "$meta_ok" = "true" ] && echo "$txn_code" | grep -q '^2'; then
+              echo "HAPI ready (metadata OK, transaction POST returned $txn_code)"
+              exit 0
+            fi
+            echo "Waiting... ($i/60) [container health: $status, metadata: $meta_ok, txn: ${txn_code:-n/a}]"
+            sleep 10
           done
+          echo "--- HAPI container logs ---"
+          docker logs fhir-synthea-lab-hapi-1 --tail 100
           echo "HAPI did not start in time" && exit 1
 
       - name: Generate Synthea patients

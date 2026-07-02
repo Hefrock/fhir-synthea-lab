@@ -4,14 +4,18 @@ set -euo pipefail
 FHIR_BASE=${FHIR_BASE_URL:-http://localhost:8080/fhir}
 BUNDLE_DIR=${SYNTHEA_OUTPUT_DIR:-./synthea/output/fhir}
 
-bundles=$(find "$BUNDLE_DIR" -name "*.json" | sort)
+# Load hospital/practitioner bundles first so patient references resolve correctly
+infra_bundles=$(find "$BUNDLE_DIR" -name "hospital*.json" -o -name "practitioner*.json" | sort)
+patient_bundles=$(find "$BUNDLE_DIR" -name "*.json" | grep -Ev "(hospital|practitioner)" | sort)
+bundles=$(printf '%s\n%s' "$infra_bundles" "$patient_bundles" | grep -v '^$')
+
 total=$(echo "$bundles" | wc -l | tr -d ' ')
 count=0
 errors=0
 
 echo "Loading $total bundles into $FHIR_BASE"
 
-for bundle in $bundles; do
+while IFS= read -r bundle; do
   count=$((count + 1))
   filename=$(basename "$bundle")
 
@@ -24,9 +28,12 @@ for bundle in $bundles; do
     echo "[$count/$total] OK $filename"
   else
     echo "[$count/$total] FAIL $filename (HTTP $http_code)"
+    if [ -f /tmp/fhir_response.json ]; then
+      echo "  HAPI response: $(head -c 800 /tmp/fhir_response.json)"
+    fi
     errors=$((errors + 1))
   fi
-done
+done <<< "$bundles"
 
 echo ""
 echo "Done. $((total - errors))/$total bundles loaded successfully."
