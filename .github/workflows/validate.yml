@@ -18,7 +18,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install Python deps
-        run: pip install requests
+        run: pip install -r scripts/requirements.txt
 
       - name: Set up Java (for Synthea)
         uses: actions/setup-java@v4
